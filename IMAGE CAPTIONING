@@ -1,0 +1,132 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from PIL import Image
+import os
+import tensorflow as tf
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Embedding, LSTM, Add, Dropout
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+
+# Configuration
+MAX_CAPTION_LEN = 40
+VOCAB_SIZE = 10000
+EMBEDDING_DIM = 256
+LSTM_UNITS = 512
+DENSE_UNITS = 512
+EPOCHS = 20
+BATCH_SIZE = 64
+
+# Feature Extraction Model (ResNet50 without top layer)
+def create_cnn_model():
+    base_model = ResNet50(include_top=False, weights='imagenet', pooling='avg')
+    inputs = Input(shape=(224, 224, 3))
+    features = base_model(inputs)
+    model = Model(inputs=inputs, outputs=features)
+    return model
+
+# Image preprocessing
+def preprocess_image(image_path):
+    img = load_img(image_path, target_size=(224, 224))
+    img = img_to_array(img)
+    img = img / 255.0
+    img = np.expand_dims(img, axis=0)
+    return img
+
+# Caption preprocessing
+def preprocess_captions(captions):
+    tokenizer = Tokenizer(num_words=VOCAB_SIZE, oov_token="<OOV>")
+    tokenizer.fit_on_texts(captions)
+    
+    sequences = tokenizer.texts_to_sequences(captions)
+    padded_seqs = pad_sequences(sequences, maxlen=MAX_CAPTION_LEN, padding='post')
+    
+    return tokenizer, padded_seqs
+
+# Data Generator
+def data_generator(image_paths, captions, tokenizer, batch_size):
+    X_image, X_seq, y = [], [], []
+    n = 0
+    
+    while True:
+        for image_path, caption in zip(image_paths, captions):
+            # Extract image features
+            img = preprocess_image(image_path)
+            features = cnn_model.predict(img, verbose=0)
+            
+            # Convert caption to sequence
+            seq = tokenizer.texts_to_sequences([caption])[0]
+            
+            # Create input-output pairs
+            for i in range(1, len(seq)):
+                in_seq = seq[:i]
+                out_seq = seq[i]
+                
+                X_image.append(features[0])
+                X_seq.append(in_seq)
+                y.append(out_seq)
+                
+                n += 1
+                if n == batch_size:
+                    X_image_batch = np.array(X_image)
+                    X_seq_batch = pad_sequences(X_seq, maxlen=MAX_CAPTION_LEN)
+                    y_batch = to_categorical(y, num_classes=VOCAB_SIZE)
+                    
+                    yield [X_image_batch, X_seq_batch], y_batch
+                    
+                    X_image, X_seq, y = [], [], []
+                    n = 0
+
+# Create CNN model
+cnn_model = create_cnn_model()
+
+# Main Captioning Model
+def create_caption_model():
+    # Image features input
+    inputs1 = Input(shape=(2048,))
+    fe1 = Dropout(0.5)(inputs1)
+    fe2 = Dense(DENSE_UNITS, activation='relu')(fe1)
+    
+    # Caption sequence input
+    inputs2 = Input(shape=(MAX_CAPTION_LEN,))
+    se1 = Embedding(VOCAB_SIZE, EMBEDDING_DIM, mask_zero=True)(inputs2)
+    se2 = Dropout(0.5)(se1)
+    se3 = LSTM(LSTM_UNITS, return_sequences=True)(se2)
+    se4 = LSTM(LSTM_UNITS)(se3)
+    
+    # Combined model
+    decoder1 = Add()([fe2, se4])
+    decoder2 = Dense(DENSE_UNITS, activation='relu')(decoder1)
+    outputs = Dense(VOCAB_SIZE, activation='softmax')(decoder2)
+    
+    return Model(inputs=[inputs1, inputs2], outputs=outputs)
+
+# Compile model
+caption_model = create_caption_model()
+caption_model.compile(loss='categorical_crossentropy', optimizer='adam')
+
+# Generate Caption for new image
+def generate_caption(image_path, beam_size=3):
+    # Extract features
+    img = preprocess_image(image_path)
+    features = cnn_model.predict(img, verbose=0)
+    
+    # Initialize caption
+    start_token = tokenizer.word_index['<OOV>']
+    caption = [start_token]
+    
+    for _ in range(MAX_CAPTION_LEN):
+        seq = pad_sequences([caption], maxlen=MAX_CAPTION_LEN)
+        y_pred = caption_model.predict([features, seq], verbose=0)[0]
+        next_token = np.argmax(y_pred)
+        
+        if next_token == tokenizer.word_index['<OOV>'] or next_token == 0:
+            break
+            
+        caption.append(next_token)
+    
+    return tokenizer.sequences_to_texts([caption])[0]
