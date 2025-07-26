@@ -1,0 +1,193 @@
+import re
+import random
+from datetime import datetime
+
+class InteractiveChatbot:
+    def __init__(self):
+        self.name = "AI ROBO"
+        self.creator = "JAYA SURYA S"
+        self.responses = {
+            'greetings': {
+                'patterns': [r'hi|hello|hey|greetings', r'what\'?s up|howdy'],
+                'responses': [
+                    "Hello! I'm here to assist you. What would you like to know?",
+                    "Hi there! I can help with various topics. What's on your mind?",
+                    "Greetings! How can I be of service today?"
+                ],
+                'suggestions': [
+                    "What can you do?",
+                    "Tell me about yourself",
+                    "What's the current time?"
+                ]
+            },
+            'farewell': {
+                'patterns': [r'bye|goodbye|see ya|quit|exit'],
+                'responses': [
+                    "Goodbye! Feel free to return if you have more questions.",
+                    "See you later! I'm always here when you need help.",
+                    "Bye! Remember you can ask me anything anytime."
+                ]
+            },
+            'thanks': {
+                'patterns': [r'thanks|thank you|appreciate'],
+                'responses': [
+                    "You're welcome! Is there anything else I can help with?",
+                    "Happy to help! What else can I assist you with today?",
+                    "No problem! Would you like to know something else?"
+                ],
+                'suggestions': [
+                    "Tell me a joke",
+                    "What's the weather?",
+                    "Who made you?"
+                ]
+            },
+            'name': {
+                'patterns': [r'your name|who are you'],
+                'responses': [
+                    f"I'm {self.name}, your friendly rule-based assistant.",
+                    f"My name is {self.name}. I'm here to answer your questions.",
+                    f"You can call me {self.name}. How can I assist you today?"
+                ],
+                'suggestions': [
+                    "What can you do?",
+                    "Who created you?",
+                    "Tell me about your capabilities"
+                ]
+            },
+            'creator': {
+                'patterns': [r'who made you|who created you|your creator'],
+                'responses': [
+                    f"I was developed by {self.creator} using Python.",
+                    f"{self.creator} is my creator. They built me to help people like you!",
+                    f"A developer named {self.creator} built me to assist with information."
+                ],
+                'suggestions': [
+                    "What programming language are you written in?",
+                    "How do you work?",
+                    "Can you learn new things?"
+                ]
+            },
+            'time': {
+                'patterns': [r'time|current time|what time is it'],
+                'responses': [
+                    f"The current time is {datetime.now().strftime('%H:%M')}.",
+                    f"It's {datetime.now().strftime('%I:%M %p')} right now."
+                ],
+                'suggestions': [
+                    "What's today's date?",
+                    "What day of the week is it?",
+                    "How long have you been running?"
+                ]
+            },
+            'capabilities': {
+                'patterns': [r'what can you do|capabilities|features'],
+                'responses': [
+                    "I can: tell time, answer questions about myself, and have simple conversations.",
+                    "My current capabilities include: telling time, discussing my creation, and responding to greetings.",
+                    "I can help with: time inquiries, self-introduction, and basic conversation."
+                ],
+                'suggestions': [
+                    "Tell me a fun fact",
+                    "What's your favorite color?",
+                    "Can you recommend something?"
+                ]
+            },
+            'help': {
+                'patterns': [r'help|support|what should I ask'],
+                'responses': [
+                    "I'm here to help! Here are some things you can ask me:",
+                    "Sure! Here are some suggestions for questions:",
+                    "I'd be happy to help. You might ask me about:"
+                ],
+                'suggestions': [
+                    "What's your name?",
+                    "Who created you?",
+                    "What time is it?",
+                    "What can you do?",
+                    "Tell me a joke",
+                    "How do you work?"
+                ]
+            },
+            'joke': {
+                'patterns': [r'tell me a joke|make me laugh'],
+                'responses': [
+                    "Why don't scientists trust atoms? Because they make up everything!",
+                    "What did one wall say to the other wall? I'll meet you at the corner!",
+                    "Why couldn't the bicycle stand up by itself? It was two tired!"
+                ],
+                'suggestions': [
+                    "Tell me another joke",
+                    "What's a fun fact?",
+                    "Can you be serious?"
+                ]
+            },
+            'default': {
+                'responses': [
+                    "I'm not sure I understand. Maybe try asking something else?",
+                    "I didn't quite catch that. Here are some suggestions:",
+                    "I'm still learning. Perhaps you could ask me one of these:"
+                ],
+                'suggestions': [
+                    "What can you do?",
+                    "Tell me about yourself",
+                    "What time is it?",
+                    "Who created you?"
+                ]
+            }
+        }
+
+    def get_response(self, user_input):
+        user_input = user_input.lower()
+        
+        # First check for exact match patterns
+        for intent, data in self.responses.items():
+            if intent == 'default':
+                continue
+                
+            for pattern in data['patterns']:
+                if re.search(pattern, user_input):
+                    return intent, random.choice(data['responses'])
+        
+        # If no exact match, use default
+        return 'default', random.choice(self.responses['default']['responses'])
+
+    def get_suggestions(self, intent):
+        """Get suggested follow-up questions for an intent"""
+        if intent in self.responses and 'suggestions' in self.responses[intent]:
+            return self.responses[intent]['suggestions']
+        return self.responses['default']['suggestions']
+
+    def format_suggestions(self, suggestions):
+        """Format suggestions for display"""
+        return "\n" + "\n".join([f"• {suggestion}" for suggestion in suggestions])
+
+    def start_chat(self):
+        print(f"\n{self.name}: Hello! I'm a helpful chatbot. You can type 'help' at any time for suggestions.")
+        print(f"{self.name}: What would you like to know?\n")
+        
+        # Show initial suggestions
+        initial_suggestions = self.responses['help']['suggestions'][:3]
+        print(f"{self.name}: Try asking me something like:")
+        print(self.format_suggestions(initial_suggestions))
+        
+        while True:
+            user_input = input("\nYou: ")
+            
+            if user_input.lower() in ['quit', 'exit', 'bye']:
+                print(f"\n{self.name}: {random.choice(self.responses['farewell']['responses'])}")
+                break
+                
+            intent, response = self.get_response(user_input)
+            
+            # Print the response
+            print(f"\n{self.name}: {response}")
+            
+            # Get and display suggestions if appropriate
+            if intent != 'farewell':
+                suggestions = self.get_suggestions(intent)
+                print(f"\n{self.name}: You might ask me:")
+                print(self.format_suggestions(suggestions[:3]))
+
+if __name__ == "__main__":
+    chatbot = InteractiveChatbot()
+    chatbot.start_chat()
