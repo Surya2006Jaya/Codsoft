@@ -130,3 +130,4 @@ def generate_caption(image_path, beam_size=3):
         caption.append(next_token)
     
     return tokenizer.sequences_to_texts([caption])[0]
+
